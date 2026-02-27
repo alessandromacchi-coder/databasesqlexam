@@ -8,6 +8,13 @@ with conn:
     #non mettiamo neanche constructor ref per la stessa ragione, idem circuitref
     #time result (tempo di fine gara) tolto perché abbiamo i milliseconds e possiamo calcolarlo
     
+    conn.execute("DROP TABLE IF EXISTS results;")
+    conn.execute("DROP TABLE IF EXISTS races;")
+    conn.execute("DROP TABLE IF EXISTS drivers;")
+    conn.execute("DROP TABLE IF EXISTS constructors;")
+    conn.execute("DROP TABLE IF EXISTS circuits;")
+    conn.execute("DROP TABLE IF EXISTS status;")
+
     conn.execute("""
     CREATE TABLE drivers 
         (driverid INTEGER PRIMARY KEY,
@@ -100,3 +107,4 @@ with conn:
     FOREIGN KEY (statusid) REFERENCES status(statusid)
         );
                  """)
+    print ("tables created successfully")
