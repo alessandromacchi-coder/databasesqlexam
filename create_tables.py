@@ -6,6 +6,8 @@ conn=sqlite3.connect(dbpath)
 with conn: 
     #non mettiamo driver ref perché è come se fosse un cognome univoco
     #non mettiamo neanche constructor ref per la stessa ragione, idem circuitref
+    #time result (tempo di fine gara) tolto perché abbiamo i milliseconds e possiamo calcolarlo
+    
     conn.execute("""
     CREATE TABLE drivers 
         (driverid INTEGER PRIMARY KEY,
@@ -87,7 +89,6 @@ with conn:
     positionOrder INTEGER NOT NULL,
     points REAL,
     laps INTEGER,
-    time_result TEXT,
     milliseconds INTEGER,
     fastestLap INTEGER,
     rank INTEGER,

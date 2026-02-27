@@ -2,10 +2,10 @@ import pandas as pd
 import sqlite3
 import numpy as np
 
-df_raw = pd.read_csv('f1.csv', low_memory=False)
+df_raw = pd.read_csv('f1.csv', low_memory=False) #il low memory per 
 
 df_ready = df_raw.copy()
-#CI SONO?
+
 df_ready.replace(r'^\\N$', np.nan, regex=True, inplace=True)
 
 df_drivers = df_ready[['driverId', 'forename', 'surname', 'number_y', 'code', 'dob', 'nationality_driver', 'url_driver']].drop_duplicates(subset=['driverId'])
@@ -51,5 +51,5 @@ df_status.to_sql('status', conn, if_exists='append', index=False)
 df_races.to_sql('races', conn, if_exists='append', index=False)
 df_results.to_sql('results', conn, if_exists='append', index=False)
 
-print("✅ Operazione completata con successo! Il tuo file f1.db è pronto.")
+print("file .db caricato con successo")
 conn.close()

@@ -1,9 +1,0 @@
-bisogna decidere cosa tenere e cosa no,
-intanto faccio tutto in modo che funzioni, nel caso possiamo tranquillamente resettare tutto ricreando tabelle e files
-cose su cui bisogna decidere / da sapere:
-1. le ref per driver, constructor, circuit
-2. se gestire lo status della gara la tabella status o in una altro modo
-3. teniamo tutti i tempi nella tabella races anche se sono quasi tutti null?
-4. tabella risultati, secondo me è giusta messa giù in questo modo
-5. per il codice che avevamo scritto lenght(codice) = 3 non si può usare quindi dobbiamo trovare un altro modo
-6. 
