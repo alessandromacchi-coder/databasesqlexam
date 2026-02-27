@@ -12,7 +12,7 @@ with conn:
         name TEXT NOT NULL, 
         surname TEXT NOT NULL,
         number INT CHECK(number>1 AND number<100),
-        code TEXT CHECK(code = UPPER(code)),
+        code TEXT CHECK(length(code) = 3 AND code = UPPER(code)),
         dob DATE,
         nationality TEXT,
         url TEXT

@@ -5,9 +5,7 @@ import numpy as np
 df_raw = pd.read_csv('f1.csv', low_memory=False)
 
 df_ready = df_raw.copy()
-
-# Ergast usa '\N' per indicare i campi vuoti. 
-# Li sostituiamo con NaN (Not a Number) che SQLite capisce come NULL
+#CI SONO?
 df_ready.replace(r'^\\N$', np.nan, regex=True, inplace=True)
 
 df_drivers = df_ready[['driverId', 'forename', 'surname', 'number_y', 'code', 'dob', 'nationality_driver', 'url_driver']].drop_duplicates(subset=['driverId'])
