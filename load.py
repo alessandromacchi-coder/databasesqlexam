@@ -33,11 +33,11 @@ df_races.columns = ['raceid', 'year', 'round', 'circuitid', 'name', 'date', 'tim
                     'quali_date', 'quali_time', 'sprint_date', 'sprint_time']
 
 colonne_results = ['resultId', 'raceId', 'driverId', 'constructorId', 'statusId', 'number_x', 'grid', 
-                   'position', 'positionText', 'positionOrder', 'points', 'laps', 'time_result', 
+                   'position', 'positionText', 'positionOrder', 'points', 'laps', 
                    'milliseconds', 'fastestLap', 'rank', 'fastestLapTime', 'fastestLapSpeed']
 df_results = df_ready[colonne_results].drop_duplicates(subset=['resultId'])
 df_results.columns = ['resultid', 'raceid', 'driverid', 'constructorid', 'statusid', 'number', 'grid', 
-                      'position', 'positionText', 'positionOrder', 'points', 'laps', 'time_result', 
+                      'position', 'positionText', 'positionOrder', 'points', 'laps', 
                       'milliseconds', 'fastestLap', 'rank', 'fastestLapTime', 'fastestLapSpeed']
 
 
