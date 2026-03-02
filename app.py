@@ -5,51 +5,189 @@ import streamlit as st
 conn = sqlite3.connect("f1.db", check_same_thread=False)
 
 
-st.title("visualizzatore e modificatore data f1!")
+st.title("F1 Data crazy ahh editor")
 #st.write("c'è da divertirsi")
-st.sidebar.title("menù di scelta per operazioni")
-sidebar=st.sidebar.radio("scegli tra le ozpioni", ["search circuits", "insert new data", "tracks per year visualization"])
+st.sidebar.title("Choose an operation")
+sidebar=st.sidebar.radio("", ["Search circuits", "Insert new data", "Modify data", "Delete data", "Yearly schedule"])
 
-def form_nuovo_pilota(conn):
-    st.write("inserisci i dati del pilota")
-    with st.form("form_pilota"):
-        name = st.text_input("name*")
-        surname = st.text_input("surname*")
-        number= st.number_input("number", min_value=1, max_value=100, step=1)
-        code = st.text_input("pilot code (for ex LEC)")
-        dob = st.date_input("date of birth")
-        nationality = st.text_input("nationality")
-        url = st.text_input("url to his wikipedia")
+def new_driver(conn):
+    st.markdown("Insert new data")
+    with st.form("newpilot"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            name = st.text_input("Name*")
+            surname = st.text_input("Surname*")
+            number= st.number_input("Number", min_value=1, max_value=100, step=1)
+        with col2:
+            code = st.text_input("Driver code (for ex LEC)")
+            dob = st.date_input("Date of birth")
+            nationality = st.text_input("Nationality")
+        url = st.text_input("URL to his wikipedia")
         
-        inviato = st.form_submit_button("add driver")
+        inviato = st.form_submit_button("Add driver")
         code = code.upper() if code != "" else None
         if inviato:
             if name and surname:
                 query = "INSERT INTO drivers (name, surname, number, code, dob, nationality, url) VALUES (?, ? ,?, ? ,? , ?, ?)"
                 with conn:
                     conn.execute(query, (name, surname,number, code, dob, nationality, url))
+                    st.toast("Driver added!")
                     st.success(f"{name} {surname} has been added to the pilots!")
             else:
                 st.warning("all * fields are mandatory !")
 
-def pagina_calendario(conn):
-    st.write("view every race for a said year!")
-
-    anno_scelto = st.slider("Seleziona la stagione:", min_value=1950, max_value=2023, value=1950, step=1)
-
+def alter_driver(conn):
+    st.markdown("Update Driver Info")
+    st.write("Insert the driver's name and surname, then fill ONLY the fields you want to modify.")
     
-    query = """
-            SELECT 
-                round AS 'Tappa', 
-                name AS 'Gran Premio', 
-                date AS 'Data', 
-                time_race AS 'Orario'
-            FROM races 
-            WHERE year = ? 
-            ORDER BY round ASC
-        """
+    with st.form("alterdriver"):
+        st.markdown("Who do you want to modify?")
+        col_search1, col_search2, col_search3 = st.columns(3)
+        with col_search1:
+            search_name = st.text_input("Current Name*")
+        with col_search2:
+            search_surname = st.text_input("Current Surname*")
+        with col_search3:
+            search_id = st.number_input("Driver ID (optional)", min_value=1, step=1, value=None)
+            
+        st.divider() 
+        st.markdown("Insert new values (leave blank to keep current)")
         
-    #qua andrebbe aggiunto un winner o qualcosa di simile
+        col1, col2 = st.columns(2)
+        with col1:
+            new_name = st.text_input("New name")
+            new_surname = st.text_input("New surname")
+            new_number = st.number_input("New number", min_value=1, max_value=99, step=1, value=None)
+        with col2:
+            new_code = st.text_input("New pilot code", max_chars=3)
+            new_nationality = st.text_input("New nationality")
+            new_url = st.text_input("New wikipedia URL")
+            
+        inviato = st.form_submit_button("Update Driver", use_container_width=True)
+        
+        if inviato:
+            if search_name and search_surname:
+                #looking for double names
+                check_query = "SELECT driverid, name, surname, dob, nationality FROM drivers WHERE name = ? AND surname = ?"
+                df_check = pd.read_sql(check_query, conn, params=(search_name, search_surname))
+                    
+                if len(df_check) == 0:
+                        st.warning(f"No driver found named {search_name} {search_surname}.")
+                        
+                elif len(df_check) > 1 and search_id is None:
+                    st.warning(" Multiple drivers found with this name, check the list below and specify the correct driver id in the search box")
+                    st.dataframe(df_check, hide_index=True)
+                
+            
+                else:
+                    update_fields = []
+                    parameters = []
+                    if new_name != "":
+                        update_fields.append("name = ?")
+                        parameters.append(new_name)
+                    if new_surname != "":
+                        update_fields.append("surname = ?")
+                        parameters.append(new_surname)
+                    if new_number is not None:
+                        update_fields.append("number = ?")
+                        parameters.append(new_number)
+                    if new_code != "":
+                        update_fields.append("code = ?")
+                        parameters.append(new_code.upper())
+                    if new_nationality != "":
+                        update_fields.append("nationality = ?")
+                        parameters.append(new_nationality)
+                    if new_url != "":
+                        update_fields.append("url = ?")
+                        parameters.append(new_url)
+            
+                    if len(update_fields) == 0:
+                        st.warning("Update at least one parameter")
+                    else:
+                        set_clause = ", ".join(update_fields)
+                        if search_id is not None:
+                            query = f"UPDATE drivers SET {set_clause} WHERE driverid = ?"
+                            parameters.append(search_id)
+                        else:
+                            query = f"UPDATE drivers SET {set_clause} WHERE name = ? AND surname = ?"
+                            parameters.extend([search_name, search_surname]) #per non aggiungere una lista ma i singoli elementi di essa 
+                        
+                        with conn:
+                            conn.execute(query, tuple(parameters))
+                            st.success(f"Driver {search_name} {search_surname} updated successfully!")
+                            st.toast("Driver updated!")
+            else:
+                st.warning("Driver's name and surname are mandatory to find the driver!")
+
+def delete_driver(conn):
+    st.markdown("Delete driver")
+    st.write("Insert the driver's name and surname to remove them from the database (remember this is not reversible)")
+    
+    with st.form("deletedriver"):
+        st.markdown("Who do you want to delete?")
+        col_search1, col_search2, col_search3 = st.columns(3)
+        with col_search1:
+            search_name = st.text_input("Name*")
+        with col_search2:
+            search_surname = st.text_input("Surname*")
+        with col_search3:
+            search_id = st.number_input("Driver ID (optional)", min_value=1, step=1, value=None)
+            
+        inviato = st.form_submit_button("Delete driver", type="primary")
+        
+        if inviato:
+            if search_name and search_surname:
+                
+                check_query = "SELECT driverid, name, surname, dob, nationality FROM drivers WHERE name = ? AND surname = ?"
+                df_check = pd.read_sql(check_query, conn, params=(search_name, search_surname))
+                    
+                if len(df_check) == 0:
+                    st.warning(f"No driver found named {search_name} {search_surname}.")
+                        
+                elif len(df_check) > 1 and search_id is None:
+                    st.warning("Multiple drivers found with this name. Check the list below and specify the correct driver ID to delete.")
+                    st.dataframe(df_check, hide_index=True)
+                
+                else:
+                    if search_id is not None:
+                        query = "DELETE FROM drivers WHERE driverid = ?"
+                        parameters = (search_id,)
+                    else:
+                        query = "DELETE FROM drivers WHERE name = ? AND surname = ?"
+                        parameters = (search_name, search_surname)
+                    
+                    try:
+                        with conn:
+                            result = conn.execute(query, parameters)
+                            if result.rowcount > 0:
+                                st.success(f"Driver {search_name} {search_surname} has been successfully deleted!")
+                                st.toast("Driver deleted!")
+                            else:
+                                st.error("Error! Driver not deleted. Check if the Driver ID is correct.")
+                    except Exception as e:
+                        st.error(f"Database error: {e}")
+            else:
+                st.warning("Driver's name and surname are mandatory to find the driver!")
+
+def yearly_schedule(conn):
+    st.subheader("View the yearly schedule with race winners")
+
+    anno_scelto = st.number_input("Choose a season year to view (from 1950 to 2024)", min_value=1950, max_value=2024, step=1)
+
+    query = """
+        SELECT 
+            ra.round AS 'Round', 
+            ra.name AS 'Grand Prix', 
+            ra.date AS 'Date',
+            d.name || ' ' || d.surname AS 'Winner'
+        FROM races ra
+        LEFT JOIN results re ON ra.raceid = re.raceid AND re.positionOrder = 1
+        LEFT JOIN drivers d ON re.driverid = d.driverid
+        WHERE ra.year = ? 
+        ORDER BY ra.round ASC
+    """
+        
     df = pd.read_sql(query, conn, params=(anno_scelto,))
             
     if not df.empty:
@@ -58,32 +196,76 @@ def pagina_calendario(conn):
     else:
         st.warning(f"Nessuna gara trovata per il {anno_scelto}.")
 
+def insertpage(conn):
+    insert=st.selectbox("What do you want to insert? ",["Drivers", "Circuits", "Constructors", "Races", "Results", "Status"])
 
-def pagina_inserimento(conn):
-    st.subheader("aggiungamo nuovi dati")
-    tipoinserimento=st.selectbox("che tabella vuoi inserire?",["piloti"])
+    match insert:
+        case "Drivers":
+            new_driver(conn)
+        case "Circuits":
+            print("")
+        case "Constructors":
+            print("")
 
-    match tipoinserimento:
-        case "piloti":
-            form_nuovo_pilota(conn)
+        case "Races":
+            print("")
 
-def circuitscountry():
-    query = """
-        select * from circuits 
-        where country = ?
-    """
-    return query
+        case "Results":
+            print("")
+        
+        case "Status":
+            print("")
 
-def ricercacircuiti(conn):
-    nazione = st.text_input("inserisci la nazione")
-    df = pd.read_sql(circuitscountry(), conn, params=(nazione,))
-    if nazione:
-        st.dataframe(df)
+def modifypage(conn):
+    st.subheader("Which table do you want to modify?")
+    insert=st.selectbox("", ["Drivers", "Circuits", "Constructors", "Races", "Results", "Status"])
+    match insert:
+        case "Drivers":
+            alter_driver(conn)
+        case "Circuits":
+            print("")
+
+        case "Constructors":
+            print("")
+
+        case "Races":
+            print("")
+
+        case "Results":
+            print("")
+        
+        case "Status":
+            print("")
+
+def deletepage(conn):
+    st.subheader("Which table do you want to delete data from?")
+    insert=st.selectbox("", ["Drivers", "Circuits", "Constructors", "Races", "Results", "Status"])
+    match insert:
+        case "Drivers":
+            delete_driver(conn)
+        case "Circuits":
+            print("")
+
+        case "Constructors":
+            print("")
+
+        case "Races":
+            print("")
+
+        case "Results":
+            print("")
+        
+        case "Status":
+            print("")
 
 match sidebar:
-    case "search circuits":
-        ricercacircuiti(conn)
-    case "insert new data":
-        pagina_inserimento(conn)
-    case "tracks per year visualization":
-        pagina_calendario(conn)
+    case "Search circuits":
+        print("ciao")
+    case "Insert new data":
+        insertpage(conn)
+    case "Modify data":
+        modifypage(conn)
+    case "Delete data":
+        deletepage(conn)
+    case "Yearly schedule":
+        yearly_schedule(conn)

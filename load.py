@@ -25,11 +25,9 @@ df_status = df_ready[['statusId', 'status']].drop_duplicates(subset=['statusId']
 df_status.columns = ['statusid', 'status']
 
 colonne_races = ['raceId', 'year', 'round', 'circuitId', 'name_x', 'date', 'time_race', 'url_x', 
-                 'fp1_date', 'fp1_time', 'fp2_date', 'fp2_time', 'fp3_date', 'fp3_time', 
                  'quali_date', 'quali_time', 'sprint_date', 'sprint_time']
 df_races = df_ready[colonne_races].drop_duplicates(subset=['raceId'])
 df_races.columns = ['raceid', 'year', 'round', 'circuitid', 'name', 'date', 'time_race', 'url', 
-                    'fp1_date', 'fp1_time', 'fp2_date', 'fp2_time', 'fp3_date', 'fp3_time', 
                     'quali_date', 'quali_time', 'sprint_date', 'sprint_time']
 
 colonne_results = ['resultId', 'raceId', 'driverId', 'constructorId', 'statusId', 'number_x', 'grid', 
