@@ -10,6 +10,140 @@ st.title("F1 Data")
 st.sidebar.title("Choose an operation")
 sidebar=st.sidebar.radio("", ["Search circuits", "Insert new data", "Modify data", "Delete data", "Yearly schedule"])
 
+
+def new_constructor(conn):
+    st.markdown("insert new data")
+    with st.form("new_constructor"):
+        name=st.text_input("constructor name*")
+        nationality=st.text_input("nationality*")
+        url=st.text_input("wikipedia URL")
+        inviato = st.form_submit_button("Add constructor")
+        if inviato:
+            if name and nationality:
+                query = "INSERT INTO constructors (name, nationality, url) VALUES (?, ?, ?)"
+                with conn:
+                    conn.execute(query, (name, nationality, url))
+                    st.toast("Constructor added!")
+                    st.success(f"{name} has been added to the constructors!")
+            else:
+                st.warning("All * fields are mandatory!")
+
+                
+def delete_constructor(conn):
+    st.markdown("Delete constructor")
+    st.write("Insert the constructor's name to remove it from the database (this is not reversible).")
+    with st.form("delete_constructor"):
+        col1, col2 = st.columns(2)
+        with col1:
+            search_name = st.text_input("Constructor name*")
+        with col2:
+            search_id = st.number_input("Constructor ID (optional)", min_value=1, step=1, value=None)
+        inviato = st.form_submit_button("Delete constructor", type="primary")
+        if inviato:
+            if search_name:
+                check_query = "SELECT constructorid, name, nationality FROM constructors WHERE name = ?"
+                df_check = pd.read_sql(check_query, conn, params=(search_name,))
+                if len(df_check) == 0:
+                    st.warning(f"No constructor found named '{search_name}'.")
+                elif len(df_check) > 1 and search_id is None:
+                    st.warning("Multiple constructors found. Specify the Constructor ID.")
+                    st.dataframe(df_check, hide_index=True)
+                else:
+                    try:
+                        if search_id is not None:
+                            query, parameters = "DELETE FROM constructors WHERE constructorid = ?", (search_id,)
+                        else:
+                            query, parameters = "DELETE FROM constructors WHERE name = ?", (search_name,)
+                        with conn:
+                            result = conn.execute(query, parameters)
+                            if result.rowcount > 0:
+                                st.success(f"Constructor '{search_name}' deleted successfully!")
+                                st.toast("Constructor deleted!")
+                            else:
+                                st.error("Constructor not deleted. Check if the ID is correct.")
+                    except Exception as e:
+                        st.error(f"Database error: {e}")
+            else:
+                st.warning("Constructor name is mandatory!")
+
+def alter_constructor(conn):
+    st.markdown("Update Constructor Info")
+    st.write("Insert the constructor's name, then fill ONLY the fields you want to modify.")
+    with st.form("alter_constructor"):
+        st.markdown("Which constructor do you want to modify?")
+        col1, col2 = st.columns(2)
+        with col1:
+            search_name = st.text_input("Current constructor name*")
+        with col2:
+            search_id = st.number_input("Constructor ID (optional)", min_value=1, step=1, value=None)
+        st.divider()
+        st.markdown("Insert new values (leave blank to keep current)")
+        new_name = st.text_input("New name")
+        new_nationality = st.text_input("New nationality")
+        new_url = st.text_input("New Wikipedia URL")
+        inviato = st.form_submit_button("Update Constructor", use_container_width=True)
+        if inviato:
+            if search_name:
+                check_query = "SELECT constructorid, name, nationality FROM constructors WHERE name = ?"
+                df_check = pd.read_sql(check_query, conn, params=(search_name,))
+                if len(df_check) == 0:
+                    st.warning(f"No constructor found named '{search_name}'.")
+                elif len(df_check) > 1 and search_id is None:
+                    st.warning("Multiple constructors found. Specify the Constructor ID.")
+                    st.dataframe(df_check, hide_index=True)
+                else:
+                    update_fields, parameters = [], []
+                    if new_name: update_fields.append("name = ?"); parameters.append(new_name)
+                    if new_nationality: update_fields.append("nationality = ?"); parameters.append(new_nationality)
+                    if new_url: update_fields.append("url = ?"); parameters.append(new_url)
+                    if not update_fields:
+                        st.warning("Update at least one parameter")
+                    else:
+                        set_clause = ", ".join(update_fields)
+                        if search_id is not None:
+                            query = f"UPDATE constructors SET {set_clause} WHERE constructorid = ?"
+                            parameters.append(search_id)
+                        else:
+                            query = f"UPDATE constructors SET {set_clause} WHERE name = ?"
+                            parameters.append(search_name)
+                        with conn:
+                            conn.execute(query, tuple(parameters))
+                            st.success(f"Constructor '{search_name}' updated successfully!")
+                            st.toast("Constructor updated!")
+            else:
+                st.warning("Constructor name is mandatory!")
+
+
+def new_circuit(conn):
+    st.markdown("Insert new circuit")
+    with st.form("new_circuit"):
+        name = st.text_input("Circuit name*")
+        col1, col2 = st.columns(2)
+        with col1:
+            location = st.text_input("Location (city)")
+            country = st.text_input("Country")
+            alt = st.number_input("Altitude (m)", value=None, step=1)
+        with col2:
+            lat = st.number_input("Latitude", value=None, format="%.6f")
+            lng = st.number_input("Longitude", value=None, format="%.6f")
+        url = st.text_input("Wikipedia URL")
+        inviato = st.form_submit_button("Add circuit")
+        if inviato:
+            if name:
+                query = "INSERT INTO circuits (name, location, country, lat, lng, alt, url) VALUES (?, ?, ?, ?, ?, ?, ?)"
+                with conn:
+                    conn.execute(query, (name, location, country, lat, lng, alt, url))
+                    st.toast("Circuit added!")
+                    st.success(f"{name} has been added to the circuits!")
+            else:
+                st.warning("Circuit name is mandatory!")
+
+
+
+
+
+
+
 def new_driver(conn):
     st.markdown("Insert new data")
     with st.form("newpilot"):
