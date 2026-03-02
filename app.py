@@ -5,7 +5,7 @@ import streamlit as st
 conn = sqlite3.connect("f1.db", check_same_thread=False)
 
 
-st.title("F1 Data crazy ahh editor")
+st.title("F1 Data")
 #st.write("c'è da divertirsi")
 st.sidebar.title("Choose an operation")
 sidebar=st.sidebar.radio("", ["Search circuits", "Insert new data", "Modify data", "Delete data", "Yearly schedule"])
