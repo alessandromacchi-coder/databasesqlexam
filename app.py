@@ -4,7 +4,7 @@ import streamlit as st
 
 conn = sqlite3.connect("f1.db", check_same_thread=False)
 
-
+#prova di commit
 st.title("F1 Data crazy ahh editor")
 #st.write("c'è da divertirsi")
 st.sidebar.title("Choose an operation")
