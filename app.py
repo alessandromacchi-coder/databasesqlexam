@@ -4,11 +4,10 @@ import streamlit as st
 
 conn = sqlite3.connect("f1.db", check_same_thread=False)
 
-
 st.title("F1 Data")
 #st.write("c'è da divertirsi")
 st.sidebar.title("Choose an operation")
-sidebar=st.sidebar.radio("", ["Search circuits", "Insert new data", "Modify data", "Delete data", "Yearly schedule"])
+sidebar=st.sidebar.radio("", ["Team carry", "Insert new data", "Modify data", "Delete data", "Yearly schedule"])
 
 
 def new_constructor(conn):
@@ -809,9 +808,54 @@ def deletepage(conn):
         case "Status":
             delete_status(conn)
 
+def team_carry(conn):
+    st.markdown("Team carry")
+    st.write("Which driver contributed the highest percentage of points to their constructor in a said season?")
+    
+    year = st.number_input("Select Season:", min_value=1950, max_value=2024, value=2021, step=1)
+    
+
+    query = """
+        WITH TeamStats AS (
+            SELECT 
+                c.constructorid, 
+                SUM(re.points) AS TotalTeamPoints
+            FROM results re
+            JOIN races ra ON re.raceid = ra.raceid
+            JOIN constructors c ON re.constructorid = c.constructorid
+            WHERE ra.year = ?
+            GROUP BY c.constructorid
+        )
+        
+        SELECT 
+            d.name || ' ' || d.surname AS Driver,
+            c.name AS Constructor,
+            SUM(re.points) AS DriverPoints,
+            ts.TotalTeamPoints,
+            ROUND((SUM(re.points) * 100.0) / ts.TotalTeamPoints, 2) AS 'Contribution to the team (%)'
+        FROM results re
+        JOIN drivers d ON re.driverid = d.driverid
+        JOIN constructors c ON re.constructorid = c.constructorid
+        JOIN races ra ON re.raceid = ra.raceid
+        JOIN TeamStats ts ON c.constructorid = ts.constructorid  
+        WHERE ra.year = ?
+        GROUP BY d.driverid, c.name, ts.TotalTeamPoints
+        ORDER BY ts.TotalTeamPoints DESC
+    """
+    
+    df = pd.read_sql(query, conn, params=(year, year))
+    if not df.empty:
+        st.dataframe(df, hide_index=True, use_container_width=True)
+        st.markdown("Contribution Chart")
+        df_chart = df.pivot(index="Constructor", columns="Driver", values="Contribution to the team (%)")        
+        st.bar_chart(df_chart)
+    else:
+        st.warning(f"No points data available for {year}.")
+
+
 match sidebar:
-    case "Search circuits":
-        print("ciao")
+    case "Team carry":
+        team_carry(conn)
     case "Insert new data":
         insertpage(conn)
     case "Modify data":
