@@ -16,7 +16,16 @@ conn = get_connection()
 
 st.title("F1 Data")
 st.sidebar.title("Choose an operation")
-sidebar = st.sidebar.radio("", ["Team carry", "Insert new data", "Modify data", "Delete data", "Yearly schedule"])
+sidebar = st.sidebar.radio("", [
+    "Team carry", 
+    "Driver Points Evolution", 
+    "Driver Duel", 
+    "Victories by Nationality", 
+    "Insert new data", 
+    "Modify data", 
+    "Delete data", 
+    "Yearly schedule"
+])
 
 def new_constructor(conn):
     st.markdown("Insert new constructor")
@@ -862,49 +871,285 @@ def deletepage(conn):
 def team_carry(conn):
     st.markdown("Team carry")
     st.write("Which driver contributed the highest percentage of points to their constructor in a said season?")
-    
+
     year = st.number_input("Select Season:", min_value=1950, max_value=2024, value=2021, step=1)
-    
+
     query = """
         WITH TeamStats AS (
             SELECT 
                 c.constructorid, 
-                SUM(re.points) AS TotalTeamPoints
+                SUM(re.points) AS "TotalTeamPoints"
             FROM results re
             JOIN races ra ON re.raceid = ra.raceid
             JOIN constructors c ON re.constructorid = c.constructorid
             WHERE ra.year = %s
             GROUP BY c.constructorid
         )
-        
         SELECT 
             d.name || ' ' || d.surname AS "Driver",
             c.name AS "Constructor",
             SUM(re.points) AS "DriverPoints",
-            ts.TotalTeamPoints,
-            ROUND(((SUM(re.points) * 100.0) / ts.TotalTeamPoints)::numeric, 2) AS "Contribution to the team (perc)"   --::numeric prende il risultato e lo mette come tipo numeric, quindi comprensibile da postgres (che non trasforma i tipi da solo)    
-            FROM results re
+            ts."TotalTeamPoints",
+            ROUND(((SUM(re.points) * 100.0) / ts."TotalTeamPoints")::numeric, 2) AS "Contribution" --numeric per fare in modo che postgres abbia il tipo di dato giusto da poter arrotondare, altrimenti non lo fa
+        FROM results re
         JOIN drivers d ON re.driverid = d.driverid
         JOIN constructors c ON re.constructorid = c.constructorid
         JOIN races ra ON re.raceid = ra.raceid
         JOIN TeamStats ts ON c.constructorid = ts.constructorid  
-        WHERE ra.year = %s AND ts.TotalTeamPoints > 0
-        GROUP BY d.driverid, d.name, d.surname, c.name, ts.TotalTeamPoints        
-        ORDER BY ts.TotalTeamPoints DESC
+        WHERE ra.year = %s and ts."TotalTeamPoints" > 0
+        GROUP BY d.driverid, d.name, d.surname, c.name, ts."TotalTeamPoints"
+        ORDER BY ts."TotalTeamPoints" DESC, "Contribution" DESC
     """
-    
+
     df = pd.read_sql(query, conn, params=(year, year))
-    if not df.empty:
-        st.dataframe(df, hide_index=True, use_container_width=True)
-        st.markdown("Contribution Chart")
-        df_chart = df.pivot(index="Constructor", columns="Driver", values="Contribution to the team (perc)")        
-        st.bar_chart(df_chart)
-    else:
+
+    if df.empty:
         st.warning(f"No points data available for {year}.")
+        return
+
+    top = df.loc[df["Contribution"].idxmax()]
+    st.info(f"Biggest carry of {year}: {top['Driver']} scored {top['Contribution']}% of {top['Constructor']}'s points ({int(top['DriverPoints'])} / {int(top['TotalTeamPoints'])})")
+
+    st.markdown("Points scored per driver")
+    df_points = df.set_index("Driver")[["DriverPoints"]].rename(columns={"DriverPoints": "Points"})
+    st.bar_chart(df_points)
+
+    st.markdown("**Drivers who scored more than 50% of their team's total points**")
+    carries = df[df["Contribution"] > 50].set_index("Driver")[["Contribution"]].rename(columns={"Contribution": "% of team points"})
+    if carries.empty:
+        st.write("No driver scored more than 50 perc of their team points this season.")
+    else:
+        st.bar_chart(carries)
+
+    with st.expander("See full data table"):
+        df_display = df.rename(columns={
+            "DriverPoints": "Driver Pts",
+            "TotalTeamPoints": "Team Total Pts",
+            "Contribution": "Contribution (%)"
+        })
+        st.dataframe(df_display[["Driver", "Constructor", "Driver Pts", "Team Total Pts", "Contribution (%)"]],
+                     hide_index=True, use_container_width=True)
+
+def driver_points_evolution(conn):
+    st.markdown("Driver Points Evolution")
+    st.write("Track how a driver accumulated points race by race throughout a season.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        year = st.number_input("Select Season:", min_value=1950, max_value=2024, value=2021, step=1, key="evol_year")
+    with col2:
+        search_name = st.text_input("Driver surname (Hamilton, Verstappen)")
+
+    if not search_name:
+        st.info("Enter a driver surname to see their points evolution.")
+        return
+
+    query = """
+        SELECT
+            ra.round AS "Round",
+            ra.name AS "GrandPrix",
+            re.points AS "RacePoints",
+            SUM(re.points) OVER (
+                PARTITION BY re.driverid
+                ORDER BY ra.round
+            ) AS "CumulativePoints"
+        FROM results re
+        JOIN races ra ON re.raceid = ra.raceid
+        JOIN drivers d ON re.driverid = d.driverid
+        WHERE ra.year = %s
+          AND d.surname = %s
+        ORDER BY ra.round ASC
+    """
+
+    df = pd.read_sql(query, conn, params=(year, search_name))
+
+    if df.empty:
+        st.warning(f"No data found for '{search_name}' in {year}. Check the surname spelling.")
+        return
+
+    col_a, col_b, col_c = st.columns(3)
+    col_a.metric("Total Points", int(df["CumulativePoints"].iloc[-1]))
+    col_b.metric("Races Completed", len(df))
+    col_c.metric("Best Single Race", int(df["RacePoints"].max()))
+
+    st.markdown("Cumulative points by round")
+    chart_data = df.set_index("Round")[["CumulativePoints"]]
+    st.line_chart(chart_data)
+
+    st.markdown("Points per race")
+    bar_data = df.set_index("Round")[["RacePoints"]]
+    st.bar_chart(bar_data)
+
+    with st.expander("See detailed table"):
+        st.dataframe(df[["Round", "GrandPrix", "RacePoints", "CumulativePoints"]], hide_index=True, use_container_width=True)
+
+def driver_duel(conn):
+    st.markdown("Driver Duel")
+    st.write("Compare two drivers head to head in the same season.")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        year = st.number_input("Season:", min_value=1950, max_value=2024, value=2021, step=1, key="duel_year")
+    with col2:
+        driver1 = st.text_input("First driver surname", value="Hamilton")
+    with col3:
+        driver2 = st.text_input("Second driver surname", value="Verstappen")
+
+    if not driver1 or not driver2:
+        st.info("Enter both driver surnames to compare them.")
+        return
+
+    query_points = """
+        SELECT
+            ra.round AS "Round",
+            ra.name AS "GrandPrix",
+            d.surname AS "Driver",
+            re.points AS "RacePoints",
+            SUM(re.points) OVER (
+                PARTITION BY re.driverid
+                ORDER BY ra.round
+            ) AS "CumulativePoints"
+        FROM results re
+        JOIN races ra ON re.raceid = ra.raceid
+        JOIN drivers d ON re.driverid = d.driverid
+        WHERE ra.year = %s
+          AND d.surname = %s
+        ORDER BY ra.round ASC
+    """
+
+    query_position = """
+        WITH SeasonPoints AS (
+            SELECT
+                re.driverid,
+                d.name || ' ' || d.surname AS "Driver",
+                d.surname AS "Surname",
+                SUM(re.points) AS "TotalPoints"
+            FROM results re
+            JOIN races ra ON re.raceid = ra.raceid
+            JOIN drivers d ON re.driverid = d.driverid
+            WHERE ra.year = %s
+            GROUP BY re.driverid, d.name, d.surname
+        )
+        SELECT
+            "Driver",
+            "TotalPoints",
+            RANK() OVER (ORDER BY "TotalPoints" DESC) AS "ChampionshipPosition"
+        FROM SeasonPoints
+        WHERE "Surname" = %s
+    """
+
+    df1 = pd.read_sql(query_points, conn, params=(year, driver1))
+    df2 = pd.read_sql(query_points, conn, params=(year, driver2))
+    pos1 = pd.read_sql(query_position, conn, params=(year, driver1))
+    pos2 = pd.read_sql(query_position, conn, params=(year, driver2))
+
+    if df1.empty:
+        st.warning(f"No data for '{driver1}' in {year}.")
+        return
+    if df2.empty:
+        st.warning(f"No data for '{driver2}' in {year}.")
+        return
+
+    name1 = df1["Driver"].iloc[0]
+    name2 = df2["Driver"].iloc[0]
+    p1_total = int(df1["CumulativePoints"].iloc[-1])
+    p2_total = int(df2["CumulativePoints"].iloc[-1])
+    champ1 = int(pos1["ChampionshipPosition"].iloc[0]) if not pos1.empty else "N/A"
+    champ2 = int(pos2["ChampionshipPosition"].iloc[0]) if not pos2.empty else "N/A"
+
+    winner = name1 if p1_total >= p2_total else name2
+    st.success(f"{year} — {winner} wins the duel")
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.markdown(f"**{name1}**")
+        m1, m2 = st.columns(2)
+        m1.metric("Points", p1_total, delta=p1_total - p2_total)
+        m2.metric("Championship Position", f"P{champ1}")
+    with col_b:
+        st.markdown(f"**{name2}**")
+        m3, m4 = st.columns(2)
+        m3.metric("Points", p2_total, delta=p2_total - p1_total)
+        m4.metric("Championship Position", f"P{champ2}")
+
+    st.divider()
+
+    merged = pd.merge(
+        df1[["Round", "CumulativePoints"]].rename(columns={"CumulativePoints": name1}),
+        df2[["Round", "CumulativePoints"]].rename(columns={"CumulativePoints": name2}),
+        on="Round", how="outer"
+    ).set_index("Round").sort_index()
+
+    st.markdown("Cumulative points race by race")
+    st.line_chart(merged)
+
+    race_compare = pd.merge(
+        df1[["Round", "RacePoints"]].rename(columns={"RacePoints": name1}),
+        df2[["Round", "RacePoints"]].rename(columns={"RacePoints": name2}),
+        on="Round", how="outer"
+    ).set_index("Round").sort_index()
+
+    st.markdown("Points scored per race")
+    st.bar_chart(race_compare)
+
+    with st.expander("See detailed table"):
+        st.dataframe(merged.reset_index(), hide_index=True, use_container_width=True)
+
+def victories_by_nationality(conn):
+    st.markdown("Victories by Nationality")
+    st.write("Which countries have produced the most race winners in F1 history?")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        year_from = st.number_input("From year:", min_value=1950, max_value=2024, value=1950, step=1)
+    with col2:
+        year_to = st.number_input("To year:", min_value=1950, max_value=2024, value=2023, step=1)
+
+    if year_from > year_to:
+        st.warning("'From year' must be less than or equal to 'To year'.")
+        return
+
+    query = """
+        SELECT
+            d.nationality AS "Nationality",
+            COUNT(*) AS "Victories",
+            COUNT(DISTINCT d.driverid) AS "UniqueDrivers"
+        FROM results re
+        JOIN drivers d ON re.driverid = d.driverid
+        JOIN races ra ON re.raceid = ra.raceid
+        WHERE re.positionOrder = 1
+          AND ra.year BETWEEN %s AND %s
+        GROUP BY d.nationality
+        ORDER BY "Victories" DESC
+        LIMIT 20
+    """
+
+    df = pd.read_sql(query, conn, params=(year_from, year_to))
+
+    if df.empty:
+        st.warning("No data found for the selected period.")
+        return
+
+    col_a, col_b, col_c = st.columns(3)
+    col_a.metric("Top Nation", df["Nationality"].iloc[0])
+    col_b.metric("Their Victories", int(df["Victories"].iloc[0]))
+    col_c.metric("Nations on Podium", len(df))
+
+    st.markdown("Top 20 nations by race victories")
+    chart_data = df.set_index("Nationality")[["Victories"]]
+    st.bar_chart(chart_data)
+
+    st.dataframe(df, hide_index=True, use_container_width=True)
 
 match sidebar:
     case "Team carry":
         team_carry(conn)
+    case "Driver Points Evolution":
+        driver_points_evolution(conn)
+    case "Driver Duel":
+        driver_duel(conn)
+    case "Victories by Nationality":
+        victories_by_nationality(conn)
     case "Insert new data":
         insertpage(conn)
     case "Modify data":
