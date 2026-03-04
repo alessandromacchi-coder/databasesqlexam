@@ -16,20 +16,20 @@ The only two things you'll need to run the app are:
 Follow the steps you see to start the app:
 
 ### Step 1: Clone the repository
-git clone https://github.com/alessandroMacchii/databasesqlexam.git
+git clone https://github.com/alessandroMacchii/databasesqlexam.git THEN
 cd databasesqlexam
 
 ### Step 2: Start docker
-download the docker desktop app and create an account 
+download the docker desktop app, create an account and make sure it is running properly
 
 ### Step 3: Use docker from the terminal to start the container
-type: docker compose up -d
+type: docker compose up -d --build, 
 keep in mind it might take a couple of minutes to get it started the first time
 
 ### Step 4: Load data
 simply execute the two python files in this order
-1. create_tables.py
-2. load.py
+1. create_tables.py with docker compose exec app python create_tables.py or just by executing the file in vscode
+2. load.py with docker compose exec app python load.py or just by executing the file in vscode
 
 ### Step 5: Run the app
 The application is now live and connected to the database.
