@@ -64,7 +64,7 @@ for i in range(len(lista_df)):
 
 df_drivers, df_constructors, df_circuits, df_status, df_races, df_results = lista_df
 
-db_url = "postgresql://postgres:password@localhost:5432/f1db"
+db_url = "postgresql://postgres:password@db:5432/f1db"
 engine = create_engine(db_url)
 
 df_drivers.to_sql('drivers', engine, if_exists='append', index=False, chunksize=500)
